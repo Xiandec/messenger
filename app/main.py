@@ -9,8 +9,9 @@ from app.core.config import settings
 from app.db.base import get_db, init_db
 from app.services.user_service import UserService
 from app.services.chat_service import ChatService
-from app.schemas.user import UserCreate, UserLogin, Token, UserResponse
-from app.schemas.chat import ChatCreate, GroupChatCreate, ChatResponse
+from app.services.message_service import MessageService
+from app.schemas.user import UserCreate, UserLogin, TokenResponse, UserResponse
+from app.schemas.chat import ChatCreate, GroupChatCreate, ChatResponse, ChatWithLastMessageResponse
 from app.core.security import get_current_user
 from app.api import history, websockets
 
@@ -48,7 +49,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     
     return result
 
-@api_router.post("/auth/token", response_model=Token)
+@api_router.post("/auth/token", response_model=TokenResponse)
 async def login_for_access_token(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
     """Получение токена доступа"""
     service = UserService(db)
@@ -117,6 +118,16 @@ async def get_user_chats(
     result = await service.get_user_chats(user_id=current_user.id)
     return result
 
+@api_router.get("/chats/with-last-message", response_model=List[ChatWithLastMessageResponse])
+async def get_user_chats_with_last_message(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получение списка чатов пользователя с последними сообщениями и статусом прочтения"""
+    service = ChatService(db)
+    result = await service.get_user_chats_with_last_message(user_id=current_user.id)
+    return result
+
 @api_router.get("/chats/{chat_id}", response_model=ChatResponse)
 async def get_chat_by_id(
     chat_id: UUID,
@@ -159,6 +170,11 @@ def websocket_info():
                 "path": "/ws/{chat_id}",
                 "params": ["token"],
                 "description": "WebSocket соединение для чата. Токен нужно передавать как query-параметр."
+            },
+            {
+                "path": "/ws/user",
+                "params": ["token"],
+                "description": "WebSocket соединение для получения всех сообщений пользователя. Токен нужно передавать как query-параметр."
             }
         ]
     } 

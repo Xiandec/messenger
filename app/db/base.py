@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from typing import AsyncGenerator
+from app.core.logging import log_info
 
 # Создание асинхронного движка SQLAlchemy
 engine = create_async_engine(settings.DATABASE_URL, echo=True)
@@ -24,4 +25,4 @@ async def init_db():
     from app.db.models import Base
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("База данных инициализирована: таблицы созданы") 
+    log_info("База данных инициализирована: таблицы созданы") 

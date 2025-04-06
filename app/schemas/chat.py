@@ -26,4 +26,19 @@ class ChatResponse(ChatBase):
     members: List[UserResponse]
     
     class Config:
+        orm_mode = True
+
+class LastMessageInfo(BaseModel):
+    id: UUID4
+    sender_id: UUID4
+    sender_name: str
+    text: str
+    timestamp: datetime
+    is_read: bool
+
+class ChatWithLastMessageResponse(ChatResponse):
+    last_message: Optional[LastMessageInfo] = None
+    unread_count: int = 0
+    
+    class Config:
         orm_mode = True 

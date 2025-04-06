@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.db.base import get_db
 from app.db.repositories import UserRepository
 from app.schemas.user import TokenData
+from app.core.logging import log_error, log_warning, log_info
 
 # Настройка контекста шифрования паролей
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -68,14 +69,35 @@ async def get_user_from_token(
 ) -> dict:
     """Получение пользователя по токену для WebSocket соединений"""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        # Проверяем и декодируем токен
+        payload = jwt.decode(
+            token, 
+            settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM],
+            options={"verify_signature": True, "verify_exp": True}
+        )
         user_id: str = payload.get("sub")
+        
         if user_id is None:
+            log_warning("Token payload does not contain 'sub' field")
             return None
+            
         token_data = TokenData(user_id=user_id)
-    except JWTError:
+        
+        # Получаем пользователя из базы данных
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_id(token_data.user_id)
+        
+        if user is None:
+            log_warning(f"User with ID {token_data.user_id} not found in database")
+            return None
+            
+        log_info(f"Successfully authenticated user {user.id} via WebSocket token")
+        return user
+        
+    except JWTError as e:
+        log_error(f"JWT token error: {str(e)}")
         return None
-    
-    user_repo = UserRepository(db)
-    user = await user_repo.get_by_id(token_data.user_id)
-    return user 
+    except Exception as e:
+        log_error(f"Unexpected error during WebSocket token verification: {str(e)}")
+        return None 

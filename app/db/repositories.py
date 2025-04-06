@@ -132,12 +132,51 @@ class MessageRepository(BaseRepository):
         result = await self.db.execute(
             select(Message)
             .where(Message.chat_id == chat_id)
-            .order_by(Message.timestamp)
+            .order_by(Message.timestamp.desc())
             .options(selectinload(Message.sender))
             .limit(limit)
             .offset(offset)
         )
         return result.scalars().all()
+    
+    async def get_last_message(self, chat_id: UUID) -> Optional[Message]:
+        result = await self.db.execute(
+            select(Message)
+            .where(Message.chat_id == chat_id)
+            .order_by(Message.timestamp.desc())
+            .options(selectinload(Message.sender))
+            .limit(1)
+        )
+        return result.scalars().first()
+    
+    async def get_unread_count(self, chat_id: UUID, user_id: UUID) -> int:
+        # Получаем все сообщения в чате, которые не от текущего пользователя
+        messages_result = await self.db.execute(
+            select(Message)
+            .where(
+                and_(
+                    Message.chat_id == chat_id,
+                    Message.sender_id != user_id
+                )
+            )
+        )
+        messages = messages_result.scalars().all()
+        
+        if not messages:
+            return 0
+        
+        # Получаем ID прочитанных сообщений
+        read_messages_result = await self.db.execute(
+            select(MessageRead.message_id)
+            .where(MessageRead.user_id == user_id)
+            .where(MessageRead.message_id.in_([message.id for message in messages]))
+        )
+        read_message_ids = set(read_messages_result.scalars().all())
+        
+        # Считаем непрочитанные
+        unread_count = sum(1 for message in messages if message.id not in read_message_ids)
+        
+        return unread_count
     
     async def mark_as_read(self, message_id: UUID, user_id: UUID) -> MessageRead:
         message_read = MessageRead(message_id=message_id, user_id=user_id)
