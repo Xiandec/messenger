@@ -9,6 +9,7 @@
 - Отправка и получение сообщений в реальном времени
 - Просмотр истории сообщений
 - Отметка сообщений как прочитанных
+- Уведомления о новых сообщениях через WebSocket
 
 ## Технологии
 
@@ -46,6 +47,7 @@ docker-compose up --build
 ### Чаты
 
 - `GET /api/v1/chats` - Получение списка чатов пользователя
+- `GET /api/v1/chats/with-last-message` - Получение списка чатов с последними сообщениями
 - `GET /api/v1/chats/{chat_id}` - Получение информации о чате
 - `POST /api/v1/chats/personal` - Создание личного чата
 - `POST /api/v1/chats/group` - Создание группового чата
@@ -58,7 +60,12 @@ docker-compose up --build
 
 ### WebSockets
 
-- `WebSocket /api/v1/ws/{chat_id}?token={token}` - Подключение к WebSocket для обмена сообщениями
+- `WebSocket /ws/{chat_id}?token={token}` - Подключение к WebSocket для обмена сообщениями в конкретном чате
+- `WebSocket /ws/user?token={token}` - Глобальное подключение для получения уведомлений о новых сообщениях во всех чатах
+
+## Подробная документация API
+
+Полная документация по API доступна в файле [API_DOCUMENTATION.md](./API_DOCUMENTATION.md).
 
 ## Структура проекта
 
@@ -94,11 +101,18 @@ docker-compose up --build
     __init__.py
     test_chat.py
     test_history.py
-  /migrations
-    alembic.ini
-    env.py
   docker-compose.yml
   Dockerfile
   requirements.txt
   README.md
-``` 
+  API_DOCUMENTATION.md
+```
+
+## Особенности авторизации
+
+Система использует JWT токены для авторизации. Срок действия токена - 30 минут. Для доступа к защищенным эндпоинтам необходимо добавить заголовок:
+
+```
+Authorization: Bearer {полученный_токен}
+```
+
